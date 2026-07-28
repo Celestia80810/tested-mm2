@@ -14,15 +14,14 @@ local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Защита от повторного запуска (удаляем старый GUI, если остался)
+-- Защита от повторного запуска
 if CoreGui:FindFirstChild("CelestiaAdvancedHub") then
     CoreGui.CelestiaAdvancedHub:Destroy()
 end
 
--- Конфигурация параметров скрипта
 local Settings = {
     AutoFarm = false,
-    FarmMode = "Nearest", -- "Nearest" или "Random"
+    FarmMode = "Nearest",
     ESPEnabled = false,
     AutoAim = false,
     AutoGrabGun = false,
@@ -30,7 +29,7 @@ local Settings = {
 }
 
 --------------------------------------------------------------------------------
--- ПОСТРОЕНИЕ ПРОФЕССИОНАЛЬНОГО ИНТЕРФЕЙСА (UI LIBRARY ARCHITECTURE)
+-- ИНТЕРФЕЙС (UI ARCHITECTURE)
 --------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CelestiaAdvancedHub"
@@ -57,7 +56,6 @@ MainStroke.Color = Color3.fromRGB(35, 35, 45)
 MainStroke.Thickness = 1
 MainStroke.Parent = MainFrame
 
--- Боковая панель навигации
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 160, 1, 0)
@@ -69,7 +67,6 @@ local SidebarCorner = Instance.new("UICorner")
 SidebarCorner.CornerRadius = UDim.new(0, 8)
 SidebarCorner.Parent = Sidebar
 
--- Убираем лишнее скругление справа у сайдбара
 local SidebarFix = Instance.new("Frame")
 SidebarFix.Size = UDim2.new(0, 10, 1, 0)
 SidebarFix.Position = UDim2.new(1, -10, 0, 0)
@@ -77,18 +74,16 @@ SidebarFix.BackgroundColor3 = Color3.fromRGB(16, 16, 21)
 SidebarFix.BorderSizePixel = 0
 SidebarFix.Parent = Sidebar
 
--- Логотип / Текст в шапке сайдбара
 local HubTitle = Instance.new("TextLabel")
 HubTitle.Size = UDim2.new(1, 0, 0, 60)
 HubTitle.BackgroundTransparency = 1
 HubTitle.TextColor3 = Color3.fromRGB(245, 245, 250)
 HubTitle.TextSize = 13
 HubTitle.Font = Enum.Font.GothamBold
-HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v2.4 Professional</font>"
+HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v2.5 Fixed Farm</font>"
 HubTitle.RichText = true
 HubTitle.Parent = Sidebar
 
--- Кнопка закрытия интерфейса
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 24, 0, 24)
 CloseButton.Position = UDim2.new(1, -32, 0, 12)
@@ -107,7 +102,6 @@ CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Контейнер для сменяемых вкладок
 local ContentArea = Instance.new("Frame")
 ContentArea.Name = "ContentArea"
 ContentArea.Size = UDim2.new(1, -172, 1, -20)
@@ -175,12 +169,10 @@ local function CreateTab(tabName)
     return tabScrolling
 end
 
--- Инициализация вкладок
 local TabMain = CreateTab("Automation")
 local TabVisuals = CreateTab("Visuals & ESP")
 local TabCombat = CreateTab("Combat & Misc")
 
--- Функция создания переключателей (Toggles)
 local function CreateToggle(targetTab, textLabel, callbackFunction)
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Size = UDim2.new(1, -6, 0, 38)
@@ -222,7 +214,6 @@ local function CreateToggle(targetTab, textLabel, callbackFunction)
     end)
 end
 
--- Заполнение интерфейса функциями
 CreateToggle(TabMain, "Автофарм монет (Режим: Nearest)", function(state) 
     Settings.AutoFarm = state 
     Settings.FarmMode = "Nearest"
@@ -251,54 +242,36 @@ end)
 
 
 --------------------------------------------------------------------------------
--- ПРОФЕССИОНАЛЬНАЯ ЛОГИКА И СИСТЕМНЫЕ СЕРВИСЫ
+-- ИСПРАВЛЕННАЯ ЛОГИКА ФАРМА (Универсальный сканер Workspace)
 --------------------------------------------------------------------------------
 
-local ActiveCoinsCache = {}
 local RoundCollectedCount = 0
 local MaxRoundCoins = 10
 
--- Валидация монеты в пространстве
-local function IsValidCoin(object)
-    return object and object.Name == "Coin" and object:IsA("BasePart") and object.Parent ~= nil
-end
-
--- Первичное сканирование карты
-for _, obj in ipairs(Workspace:GetDescendants()) do
-    if IsValidCoin(obj) then
-        table.insert(ActiveCoinsCache, obj)
-    end
-end
-
--- Реактивное добавление новых монет от сервера
-Workspace.DescendantAdded:Connect(function(obj)
-    if IsValidCoin(obj) then
-        table.insert(ActiveCoinsCache, obj)
-    end
-end)
-
--- Очистка кэша при сборе/удалении
-Workspace.DescendantRemoving:Connect(function(obj)
-    for index, coin in ipairs(ActiveCoinsCache) do
-        if coin == obj then
-            table.remove(ActiveCoinsCache, index)
-            break
+-- Функция проверки: является ли объект монетой (ищет по имени и наличию позиции)
+local function GetValidCoins()
+    local coins = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj.Name == "Coin" or obj.Name == "CoinVisual" or (obj:IsA("BasePart") and obj.Name:lower():find("coin")) then
+            if obj:IsA("BasePart") and obj.Parent ~= nil then
+                table.insert(coins, obj)
+            end
         end
     end
-end)
+    return coins
+end
 
--- Сброс счетчика лимита раунда
 Workspace.ChildAdded:Connect(function(child)
     if child.Name == "CoinContainer" or child.Name == "Map" then
         RoundCollectedCount = 0
     end
 end)
 
--- 1. Интеллектуальный автофарм (TweenService + Режимы Nearest/Random)
+-- Интеллектуальный автофарм с прямым сканированием за один цикл
 task.spawn(function()
     local activeTween = nil
     while true do
-        task.wait(0.15)
+        task.wait(0.1)
         if Settings.AutoFarm then
             pcall(function()
                 if RoundCollectedCount >= MaxRoundCoins then return end
@@ -308,42 +281,28 @@ task.spawn(function()
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 if not rootPart or not humanoid or humanoid.Health <= 0 then return end
 
+                local availableCoins = GetValidCoins()
+                if #availableCoins == 0 then return end
+
                 local targetCoin = nil
 
-                -- Обработка режимов фарма
                 if Settings.FarmMode == "Nearest" then
                     local minDistance = math.huge
-                    for i = #ActiveCoinsCache, 1, -1 do
-                        local coin = ActiveCoinsCache[i]
-                        if IsValidCoin(coin) then
-                            local dist = (rootPart.Position - coin.Position).Magnitude
-                            if dist < minDistance then
-                                minDistance = dist
-                                targetCoin = coin
-                            end
-                        else
-                            table.remove(ActiveCoinsCache, i)
+                    for _, coin in ipairs(availableCoins) do
+                        local dist = (rootPart.Position - coin.Position).Magnitude
+                        if dist < minDistance then
+                            minDistance = dist
+                            targetCoin = coin
                         end
                     end
                 elseif Settings.FarmMode == "Random" then
-                    local validList = {}
-                    for i = #ActiveCoinsCache, 1, -1 do
-                        local coin = ActiveCoinsCache[i]
-                        if IsValidCoin(coin) then
-                            table.insert(validList, coin)
-                        else
-                            table.remove(ActiveCoinsCache, i)
-                        end
-                    end
-                    if #validList > 0 then
-                        targetCoin = validList[math.random(1, #validList)]
-                    end
+                    targetCoin = availableCoins[math.random(1, #availableCoins)]
                 end
 
                 if targetCoin then
                     if activeTween then activeTween:Cancel() end
 
-                    local travelSpeed = 45 -- Оптимальная скорость во избежание десинка
+                    local travelSpeed = 50
                     local distanceToCoin = (rootPart.Position - targetCoin.Position).Magnitude
                     local flightDuration = distanceToCoin / travelSpeed
 
@@ -352,12 +311,12 @@ task.spawn(function()
                     activeTween:Play()
 
                     while activeTween.PlaybackState == Enum.PlaybackState.Playing do
-                        if not IsValidCoin(targetCoin) then
+                        if not targetCoin.Parent then
                             activeTween:Cancel()
                             RoundCollectedCount = RoundCollectedCount + 1
                             break
                         end
-                        task.wait(0.03)
+                        task.wait(0.02)
                     end
                     activeTween.Completed:Wait()
                 end
@@ -368,16 +327,16 @@ task.spawn(function()
     end
 end)
 
--- 2. ESP Ролей (Определение Шерифа, Маньяка и Мирных)
+-- ESP Ролей
 local function ResolvePlayerRole(player)
     if player.Character then
         if player.Character:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun") then
-            return Color3.fromRGB(52, 152, 219) -- Шериф (Синий)
+            return Color3.fromRGB(52, 152, 219)
         elseif player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife") then
-            return Color3.fromRGB(231, 76, 60)  -- Маньяк (Красный)
+            return Color3.fromRGB(231, 76, 60)
         end
     end
-    return Color3.fromRGB(46, 204, 113)         -- Мирный (Зеленый)
+    return Color3.fromRGB(46, 204, 113)
 end
 
 RunService.RenderStepped:Connect(function()
@@ -400,10 +359,10 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 3. Автоподбор упавшего оружия (GunDrop)
+-- Автоподбор оружия
 task.spawn(function()
     while true do
-        task.wait(0.4)
+        task.wait(0.3)
         if Settings.AutoGrabGun then
             pcall(function()
                 for _, obj in ipairs(Workspace:GetChildren()) do
@@ -419,7 +378,7 @@ task.spawn(function()
     end
 end)
 
--- 4. Автоаим на владельца ножа (Маньяка)
+-- Автоаим
 RunService.RenderStepped:Connect(function()
     if Settings.AutoAim then
         pcall(function()
@@ -440,7 +399,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 5. Банихоп
+-- Банихоп
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and Settings.BunnyHop and input.KeyCode == Enum.KeyCode.Space then
         pcall(function()
@@ -451,5 +410,3 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end)
     end
 end)
-
-print("MM2 Security Hub successfully initialized.")
