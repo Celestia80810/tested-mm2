@@ -77,7 +77,6 @@ task.spawn(function()
     end
     task.wait(0.5)
     
-    -- Плавное исчезновение загрузчика
     local fadeTween = TweenService:Create(LoaderFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
     fadeTween:Play()
     TweenService:Create(LoaderText, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
@@ -154,7 +153,7 @@ HubTitle.BackgroundTransparency = 1
 HubTitle.TextColor3 = Color3.fromRGB(245, 245, 250)
 HubTitle.TextSize = 13
 HubTitle.Font = Enum.Font.GothamBold
-HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v3.0 Pro Ultimate</font>"
+HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v3.1 Pro Ultimate</font>"
 HubTitle.RichText = true
 HubTitle.Parent = Sidebar
 
@@ -428,96 +427,42 @@ end)
 
 
 --------------------------------------------------------------------------------
--- УНИВЕРСАЛЬНЫЙ АВТОФАРМ МОНЕТ (Любая карта и контейнеры)
+-- УЛЬТИМАТИВНЫЙ ОБХОДЧИК И СБОРЩИК МОНЕТ (MM2 SERVER-BYPASS)
 --------------------------------------------------------------------------------
-local RoundCollectedCount = 0
-local MaxRoundCoins = 10
-
-local function GetValidCoins()
-    local coins = {}
-    -- Проходим по всем объектам Workspace, включая динамические папки карт и хранилища монет
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        local nameLower = obj.Name:lower()
-        if nameLower == "coin" or nameLower == "coinvisual" or nameLower:find("coin") or nameLower == "coingrab" then
-            if obj:IsA("BasePart") and obj.Parent ~= nil then
-                table.insert(coins, obj)
-            elseif obj:IsA("Model") and obj.PrimaryPart then
-                table.insert(coins, obj.PrimaryPart)
-            elseif obj:IsA("Model") then
-                for _, part in ipairs(obj:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        table.insert(coins, part)
-                        break
-                    end
-                end
-            end
-        end
-    end
-    return coins
-end
-
--- Сброс счетчика при смене раунда/карты
-Workspace.ChildAdded:Connect(function(child)
-    if child.Name == "CoinContainer" or child.Name == "Map" or child.Name == "CurrentMap" then
-        RoundCollectedCount = 0
-    end
-end)
-
--- Основной цикл универсального фарма
 task.spawn(function()
-    local activeTween = nil
     while true do
-        task.wait(0.08)
+        task.wait(0.2)
         if Settings.AutoFarm then
             pcall(function()
-                if RoundCollectedCount >= MaxRoundCoins then return end
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
 
-                local character = LocalPlayer.Character
-                local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                if not rootPart or not humanoid or humanoid.Health <= 0 then return end
-
-                local availableCoins = GetValidCoins()
-                if #availableCoins == 0 then return end
-
-                local targetCoin = nil
-
-                if Settings.FarmMode == "Nearest" then
-                    local minDistance = math.huge
-                    for _, coin in ipairs(availableCoins) do
-                        local dist = (rootPart.Position - coin.Position).Magnitude
-                        if dist < minDistance then
-                            minDistance = dist
-                            targetCoin = coin
+                -- Сканируем всю карту в Workspace на наличие монет
+                for _, obj in ipairs(Workspace:GetDescendants()) do
+                    if not Settings.AutoFarm then break end
+                    
+                    local name = obj.Name:lower()
+                    if name == "coin" or name == "coinvisual" or name:find("coin") then
+                        local targetPart = nil
+                        if obj:IsA("BasePart") then
+                            targetPart = obj
+                        elseif obj:IsA("Model") then
+                            targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
                         end
-                    end
-                elseif Settings.FarmMode == "Random" then
-                    targetCoin = availableCoins[math.random(1, #availableCoins)]
-                end
 
-                if targetCoin then
-                    if activeTween then activeTween:Cancel() end
-
-                    local travelSpeed = 65 -- скорость полета к монете
-                    local distanceToCoin = (rootPart.Position - targetCoin.Position).Magnitude
-                    local flightDuration = distanceToCoin / travelSpeed
-
-                    local tweenInfo = TweenInfo.new(flightDuration, Enum.EasingStyle.Linear)
-                    activeTween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(targetCoin.Position + Vector3.new(0, 1.5, 0))})
-                    activeTween:Play()
-
-                    while activeTween.PlaybackState == Enum.PlaybackState.Playing do
-                        if not targetCoin.Parent or (rootPart.Position - targetCoin.Position).Magnitude < 3 then
-                            activeTween:Cancel()
-                            RoundCollectedCount = RoundCollectedCount + 1
-                            break
+                        if targetPart and targetPart.Parent and (targetPart.Position - hrp.Position).Magnitude < 400 then
+                            -- Физическое приближение к позиции монеты для срабатывания сетевого триггера сервера
+                            local startTime = tick()
+                            while targetPart.Parent and (tick() - startTime) < 1.5 do
+                                if not Settings.AutoFarm then break end
+                                hrp.CFrame = CFrame.new(targetPart.Position + Vector3.new(0, 0.4, 0))
+                                task.wait(0.03)
+                            end
                         end
-                        task.wait(0.02)
                     end
                 end
             end)
-        else
-            if activeTween then activeTween:Cancel() end
         end
     end
 end)
@@ -535,4 +480,49 @@ RunService.Heartbeat:Connect(function()
         if Settings.TrollingMode == "Fling Aura" then
             hrp.Velocity = Vector3.new(35000, 35000, 35000)
             hrp.RotVelocity = Vector3.new(99999, 99999, 99999)
-        elseif Settings.TrollingMode == "S
+        elseif Settings.TrollingMode == "Spinbot" then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(45), 0)
+        elseif Settings.TrollingMode == "Orbit Target" then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetHrp = plr.Character.HumanoidRootPart
+                    local angle = tick() * 6
+                    local offset = CFrame.new(math.cos(angle) * 8, 3, math.sin(angle) * 8)
+                    hrp.CFrame = targetHrp.CFrame * offset
+                    break
+                end
+            end
+        end
+    end)
+end)
+
+
+--------------------------------------------------------------------------------
+-- VISUALS & COMBAT (ESP, Автоаим, Банихоп, Автоподбор)
+--------------------------------------------------------------------------------
+local function ResolvePlayerRole(player)
+    if player.Character then
+        if player.Character:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun") then
+            return Color3.fromRGB(52, 152, 219)
+        elseif player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife") then
+            return Color3.fromRGB(231, 76, 60)
+        end
+    end
+    return Color3.fromRGB(46, 204, 113)
+end
+
+RunService.RenderStepped:Connect(function()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local highlight = plr.Character:FindFirstChild("CelestiaESP")
+            if Settings.ESPEnabled then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "CelestiaESP"
+                    highlight.Adornee = plr.Character
+                    highlight.Parent = plr.Character
+                end
+                highlight.FillColor = ResolvePlayerRole(plr)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            else
+                if highlight then highlight:Destroy()
