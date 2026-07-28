@@ -1,8 +1,8 @@
 --[[
     @File: Celestiaskript.lua
-    @Project: MM2 Advanced Security Hub
-    @Author: Celestia_000
-    @Description: Professional grade automation and utility hub for Murder Mystery 2
+    @Project: MM2 Advanced Security Hub & Trolling
+    @Author: Celestia
+    @Description: Professional grade automation, custom UI loader, universal coin farm, and advanced trolling mechanics
 ]]--
 
 local Players = game:GetService("Players")
@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -18,7 +19,77 @@ local LocalPlayer = Players.LocalPlayer
 if CoreGui:FindFirstChild("CelestiaAdvancedHub") then
     CoreGui.CelestiaAdvancedHub:Destroy()
 end
+if CoreGui:FindFirstChild("CelestiaLoader") then
+    CoreGui.CelestiaLoader:Destroy()
+end
 
+--------------------------------------------------------------------------------
+-- ЭКРАН ЗАГРУЗКИ (LOADING INTRO: "Celestia")
+--------------------------------------------------------------------------------
+local LoaderGui = Instance.new("ScreenGui")
+LoaderGui.Name = "CelestiaLoader"
+LoaderGui.ResetOnSpawn = false
+LoaderGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+LoaderGui.Parent = CoreGui
+
+local LoaderFrame = Instance.new("Frame")
+LoaderFrame.Size = UDim2.new(0, 320, 0, 110)
+LoaderFrame.Position = UDim2.new(0.5, -160, 0.5, -55)
+LoaderFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 17)
+LoaderFrame.BorderSizePixel = 0
+LoaderFrame.Parent = LoaderGui
+
+local LoaderCorner = Instance.new("UICorner")
+LoaderCorner.CornerRadius = UDim.new(0, 10)
+LoaderCorner.Parent = LoaderFrame
+
+local LoaderStroke = Instance.new("UIStroke")
+LoaderStroke.Color = Color3.fromRGB(45, 45, 60)
+LoaderStroke.Thickness = 1
+LoaderStroke.Parent = LoaderFrame
+
+local LoaderText = Instance.new("TextLabel")
+LoaderText.Size = UDim2.new(1, 0, 0, 40)
+LoaderText.Position = UDim2.new(0, 0, 0, 20)
+LoaderText.BackgroundTransparency = 1
+LoaderText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoaderText.TextSize = 24
+LoaderText.Font = Enum.Font.GothamBold
+LoaderText.Text = ""
+LoaderText.Parent = LoaderFrame
+
+local LoaderSub = Instance.new("TextLabel")
+LoaderSub.Size = UDim2.new(1, 0, 0, 20)
+LoaderSub.Position = UDim2.new(0, 0, 0, 65)
+LoaderSub.BackgroundTransparency = 1
+LoaderSub.TextColor3 = Color3.fromRGB(115, 115, 135)
+LoaderSub.TextSize = 11
+LoaderSub.Font = Enum.Font.GothamMedium
+LoaderSub.Text = "Initializing Security & Trolling Hub..."
+LoaderSub.Parent = LoaderFrame
+
+-- Анимация побуквенного появления имени "Celestia"
+task.spawn(function()
+    local targetString = "Celestia"
+    for i = 1, #targetString do
+        LoaderText.Text = targetString:sub(1, i)
+        task.wait(0.12)
+    end
+    task.wait(0.5)
+    
+    -- Плавное исчезновение загрузчика
+    local fadeTween = TweenService:Create(LoaderFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+    fadeTween:Play()
+    TweenService:Create(LoaderText, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    TweenService:Create(LoaderSub, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    TweenService:Create(LoaderStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    task.wait(0.5)
+    LoaderGui:Destroy()
+end)
+
+--------------------------------------------------------------------------------
+-- СОСТОЯНИЕ СКРИПТА (SETTINGS)
+--------------------------------------------------------------------------------
 local Settings = {
     AutoFarm = false,
     FarmMode = "Nearest",
@@ -26,10 +97,13 @@ local Settings = {
     AutoAim = false,
     AutoGrabGun = false,
     BunnyHop = false,
+    TrollingMode = "None",
+    SelectedEmote = "None",
+    TargetPlayer = "None"
 }
 
 --------------------------------------------------------------------------------
--- ИНТЕРФЕЙС (UI ARCHITECTURE)
+-- ГЛАВНЫЙ ИНТЕРФЕЙС (UI ARCHITECTURE)
 --------------------------------------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CelestiaAdvancedHub"
@@ -39,8 +113,8 @@ ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 560, 0, 390)
-MainFrame.Position = UDim2.new(0.5, -280, 0.5, -195)
+MainFrame.Size = UDim2.new(0, 600, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -300, 0.5, -210)
 MainFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 17)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -80,7 +154,7 @@ HubTitle.BackgroundTransparency = 1
 HubTitle.TextColor3 = Color3.fromRGB(245, 245, 250)
 HubTitle.TextSize = 13
 HubTitle.Font = Enum.Font.GothamBold
-HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v2.5 Fixed Farm</font>"
+HubTitle.Text = "MM2 SECURITY HUB\n<font size='9' color='#7A7A8C'>v3.0 Pro Ultimate</font>"
 HubTitle.RichText = true
 HubTitle.Parent = Sidebar
 
@@ -169,9 +243,11 @@ local function CreateTab(tabName)
     return tabScrolling
 end
 
+-- Создание вкладок
 local TabMain = CreateTab("Automation")
 local TabVisuals = CreateTab("Visuals & ESP")
 local TabCombat = CreateTab("Combat & Misc")
+local TabTrolling = CreateTab("Trolling & Emotes")
 
 local function CreateToggle(targetTab, textLabel, callbackFunction)
     local toggleBtn = Instance.new("TextButton")
@@ -214,12 +290,105 @@ local function CreateToggle(targetTab, textLabel, callbackFunction)
     end)
 end
 
-CreateToggle(TabMain, "Автофарм монет (Режим: Nearest)", function(state) 
+-- Компонент выпадающего меню со стрелочкой (Dropdown)
+local function CreateDropdown(targetTab, titleText, optionsList, defaultOption, callbackFunction)
+    local dropContainer = Instance.new("Frame")
+    dropContainer.Size = UDim2.new(1, -6, 0, 38)
+    dropContainer.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    dropContainer.Parent = targetTab
+    
+    local dCorner = Instance.new("UICorner")
+    dCorner.CornerRadius = UDim.new(0, 6)
+    dCorner.Parent = dropContainer
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(175, 175, 190)
+    titleLabel.TextSize = 12
+    titleLabel.Font = Enum.Font.GothamMedium
+    titleLabel.Text = titleText .. ": " .. defaultOption
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = dropContainer
+
+    local arrowBtn = Instance.new("TextButton")
+    arrowBtn.Size = UDim2.new(0, 30, 0, 38)
+    arrowBtn.Position = UDim2.new(1, -35, 0, 0)
+    arrowBtn.BackgroundTransparency = 1
+    arrowBtn.TextColor3 = Color3.fromRGB(200, 200, 215)
+    arrowBtn.TextSize = 14
+    arrowBtn.Font = Enum.Font.GothamBold
+    arrowBtn.Text = "▼"
+    arrowBtn.Parent = dropContainer
+
+    local listFrame = Instance.new("ScrollingFrame")
+    listFrame.Size = UDim2.new(1, 0, 0, 0)
+    listFrame.Position = UDim2.new(0, 0, 1, 4)
+    listFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+    listFrame.BorderSizePixel = 0
+    listFrame.Visible = false
+    listFrame.ZIndex = 5
+    listFrame.CanvasSize = UDim2.new(0, 0, 0, #optionsList * 32)
+    listFrame.ScrollBarThickness = 2
+    listFrame.Parent = dropContainer
+
+    local listCorner = Instance.new("UICorner")
+    listCorner.CornerRadius = UDim.new(0, 6)
+    listCorner.Parent = listFrame
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Parent = listFrame
+
+    local isOpen = false
+    arrowBtn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        if isOpen then
+            listFrame.Visible = true
+            arrowBtn.Text = "▲"
+            TweenService:Create(listFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, math.min(#optionsList * 32, 120)}):Play()
+        else
+            arrowBtn.Text = "▼"
+            local tw = TweenService:Create(listFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)})
+            tw:Play()
+            tw.Completed:Connect(function()
+                if not isOpen then listFrame.Visible = false end
+            end)
+        end
+    end)
+
+    for _, opt in ipairs(optionsList) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 32)
+        optBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+        optBtn.BackgroundTransparency = 1
+        optBtn.TextColor3 = Color3.fromRGB(160, 160, 180)
+        optBtn.TextSize = 11
+        optBtn.Font = Enum.Font.Gotham
+        optBtn.Text = "  " .. opt
+        optBtn.TextXAlignment = Enum.TextXAlignment.Left
+        optBtn.ZIndex = 6
+        optBtn.Parent = listFrame
+
+        optBtn.MouseButton1Click:Connect(function()
+            titleLabel.Text = titleText .. ": " .. opt
+            isOpen = false
+            arrowBtn.Text = "▼"
+            listFrame.Visible = false
+            listFrame.Size = UDim2.new(1, 0, 0, 0)
+            callbackFunction(opt)
+        end)
+    end
+end
+
+-- Элементы управления
+CreateToggle(TabMain, "Автофарм монет (Nearest)", function(state) 
     Settings.AutoFarm = state 
     Settings.FarmMode = "Nearest"
 end)
 
-CreateToggle(TabMain, "Автофарм монет (Режим: Random)", function(state) 
+CreateToggle(TabMain, "Автофарм монет (Random)", function(state) 
     Settings.AutoFarm = state 
     Settings.FarmMode = "Random"
 end)
@@ -240,38 +409,65 @@ CreateToggle(TabCombat, "Банихоп (Spacebar)", function(state)
     Settings.BunnyHop = state 
 end)
 
+-- Выпадающие меню для троллинга и эмоций
+CreateDropdown(TabTrolling, "Режим троллинга", {"None", "Fling Aura", "Orbit Target", "Spinbot"}, "None", function(val)
+    Settings.TrollingMode = val
+end)
+
+CreateDropdown(TabTrolling, "Эмоция MM2", {"None", "Sit", "Dance", "Headless", "Zen", "Laugh"}, "None", function(val)
+    Settings.SelectedEmote = val
+    pcall(function()
+        if val ~= "None" then
+            local emotesRemote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Emote")
+            if emotesRemote then
+                emotesRemote:FireServer(val)
+            end
+        end
+    end)
+end)
+
 
 --------------------------------------------------------------------------------
--- ИСПРАВЛЕННАЯ ЛОГИКА ФАРМА (Универсальный сканер Workspace)
+-- УНИВЕРСАЛЬНЫЙ АВТОФАРМ МОНЕТ (Любая карта и контейнеры)
 --------------------------------------------------------------------------------
-
 local RoundCollectedCount = 0
 local MaxRoundCoins = 10
 
--- Функция проверки: является ли объект монетой (ищет по имени и наличию позиции)
 local function GetValidCoins()
     local coins = {}
+    -- Проходим по всем объектам Workspace, включая динамические папки карт и хранилища монет
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name == "Coin" or obj.Name == "CoinVisual" or (obj:IsA("BasePart") and obj.Name:lower():find("coin")) then
+        local nameLower = obj.Name:lower()
+        if nameLower == "coin" or nameLower == "coinvisual" or nameLower:find("coin") or nameLower == "coingrab" then
             if obj:IsA("BasePart") and obj.Parent ~= nil then
                 table.insert(coins, obj)
+            elseif obj:IsA("Model") and obj.PrimaryPart then
+                table.insert(coins, obj.PrimaryPart)
+            elseif obj:IsA("Model") then
+                for _, part in ipairs(obj:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        table.insert(coins, part)
+                        break
+                    end
+                end
             end
         end
     end
     return coins
 end
 
+-- Сброс счетчика при смене раунда/карты
 Workspace.ChildAdded:Connect(function(child)
-    if child.Name == "CoinContainer" or child.Name == "Map" then
+    if child.Name == "CoinContainer" or child.Name == "Map" or child.Name == "CurrentMap" then
         RoundCollectedCount = 0
     end
 end)
 
--- Интеллектуальный автофарм с прямым сканированием за один цикл
+-- Основной цикл универсального фарма
 task.spawn(function()
     local activeTween = nil
     while true do
-        task.wait(0.1)
+        task.wait(0.08)
         if Settings.AutoFarm then
             pcall(function()
                 if RoundCollectedCount >= MaxRoundCoins then return end
@@ -302,23 +498,22 @@ task.spawn(function()
                 if targetCoin then
                     if activeTween then activeTween:Cancel() end
 
-                    local travelSpeed = 50
+                    local travelSpeed = 65 -- скорость полета к монете
                     local distanceToCoin = (rootPart.Position - targetCoin.Position).Magnitude
                     local flightDuration = distanceToCoin / travelSpeed
 
                     local tweenInfo = TweenInfo.new(flightDuration, Enum.EasingStyle.Linear)
-                    activeTween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(targetCoin.Position + Vector3.new(0, 2, 0))})
+                    activeTween = TweenService:Create(rootPart, tweenInfo, {CFrame = CFrame.new(targetCoin.Position + Vector3.new(0, 1.5, 0))})
                     activeTween:Play()
 
                     while activeTween.PlaybackState == Enum.PlaybackState.Playing do
-                        if not targetCoin.Parent then
+                        if not targetCoin.Parent or (rootPart.Position - targetCoin.Position).Magnitude < 3 then
                             activeTween:Cancel()
                             RoundCollectedCount = RoundCollectedCount + 1
                             break
                         end
                         task.wait(0.02)
                     end
-                    activeTween.Completed:Wait()
                 end
             end)
         else
@@ -327,86 +522,17 @@ task.spawn(function()
     end
 end)
 
--- ESP Ролей
-local function ResolvePlayerRole(player)
-    if player.Character then
-        if player.Character:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Gun") then
-            return Color3.fromRGB(52, 152, 219)
-        elseif player.Character:FindFirstChild("Knife") or player.Backpack:FindFirstChild("Knife") then
-            return Color3.fromRGB(231, 76, 60)
-        end
-    end
-    return Color3.fromRGB(46, 204, 113)
-end
 
-RunService.RenderStepped:Connect(function()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local highlight = plr.Character:FindFirstChild("ProfessionalHubESP")
-            if Settings.ESPEnabled then
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "ProfessionalHubESP"
-                    highlight.Adornee = plr.Character
-                    highlight.Parent = plr.Character
-                end
-                highlight.FillColor = ResolvePlayerRole(plr)
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            else
-                if highlight then highlight:Destroy() end
-            end
-        end
-    end
-end)
+--------------------------------------------------------------------------------
+-- ЛОГИКА ТРОЛЛИНГА, ФЛИНГА И ОРБИТЫ
+--------------------------------------------------------------------------------
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
--- Автоподбор оружия
-task.spawn(function()
-    while true do
-        task.wait(0.3)
-        if Settings.AutoGrabGun then
-            pcall(function()
-                for _, obj in ipairs(Workspace:GetChildren()) do
-                    if obj.Name == "GunDrop" and obj:IsA("BasePart") then
-                        local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            rootPart.CFrame = obj.CFrame
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- Автоаим
-RunService.RenderStepped:Connect(function()
-    if Settings.AutoAim then
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and (char:FindFirstChild("Gun") or LocalPlayer.Backpack:FindFirstChild("Gun")) then
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Character then
-                        if ResolvePlayerRole(plr) == Color3.fromRGB(231, 76, 60) then
-                            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                            if targetRoot then
-                                Workspace.CurrentCamera.CFrame = CFrame.new(Workspace.CurrentCamera.CFrame.Position, targetRoot.Position)
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    end
-end)
-
--- Банихоп
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and Settings.BunnyHop and input.KeyCode == Enum.KeyCode.Space then
-        pcall(function()
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end)
-    end
-end)
+        if Settings.TrollingMode == "Fling Aura" then
+            hrp.Velocity = Vector3.new(35000, 35000, 35000)
+            hrp.RotVelocity = Vector3.new(99999, 99999, 99999)
+        elseif Settings.TrollingMode == "S
